@@ -13,6 +13,12 @@ HAL_StatusTypeDef AS5x47U_readVelocity(AS5x47U* enc_ptr);
 /* Low Level Functions */
 // NOTE - SPI commands here work with 24bit frames for CRC 8bit checks + we don't need the speed of 16bit frames
 HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr) {
+/*
+    Inputs:
+        enc_ptr: Pointer to the AS5x47U struct instance that stores all information
+        reg_addr: 14 bit address indicating which register to be read over SPI -> stored as uint16_t
+*/
+
     // 24 bit transaction SPI TransmitReceive
 
     // Set up transmission buffer
@@ -24,11 +30,28 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr) {
         Bits 21:8 to store the register address (14 bits)
         Bits 7:0 has the CRC that we send across
     */
-    uint16_t tempUpper = reg_addr | (1 << 14); // Set the 14th bit to 1 for read; the 15th bit is already 0
-    uint8_t tempLower = 2; //FIXME - CRC calculation should be done for this value
+   
+    uint16_t tempUpper = reg_addr | (1 << 14); // Set the 15th bit to 1 for read; the 15th bit is already 0
+    /*
+        tempUpper:
+            Bit 15 is 0 since it isn't touched
+            Bit 14 is 1 since we want to read
+            Bits 13 to 0 contain the address
 
+        crc:
+            Bits 7 to 0 here are all part of the crc
+    */
+
+    // Last 8 bits = 1 byte for the crc value
+    txBuff = (tempUpper << 8) | (enc_ptr->last_crc); 
     
+    // Transmit over SPI and store away into a 32bit buffer
+    
+    // Check that the CRC provided matches what we stored (enc_ptr->last_crc)
 
+    // Use bits 21:8 as the data bits that we actually want to read (14 bit number)
+
+    // Store the result away in the handle
 
     return HAL_OK;
 }

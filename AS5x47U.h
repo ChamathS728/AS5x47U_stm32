@@ -54,6 +54,9 @@ typedef struct AS5x47U {
     // Calibration information
     
 
+    // Crc value
+    uint8_t last_crc;
+
 } AS5x47U;
 
 
