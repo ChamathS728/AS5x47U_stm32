@@ -9,7 +9,7 @@
 #ifndef AS5X47U_SPI_DRIVER_H
 #define AS5X47U_SPI_DRIVER_H
 
-#include "stm32h7xx_hal.h" // Need this for I2C communications via HAL
+#include "stm32h7xx_hal.h" // Need this for SPI communications via HAL
 
 // NOTE - This encoder works on mode=1 for SPI, so CPOL=0, CPHA=1
 
@@ -43,8 +43,8 @@ typedef struct AS5x47U {
     uint8_t enc_addr;
 
     // Configuration information
-    int16_t rxBuffer[3];    // NOTE - 3 bytes in length for 24 bit transactions specifically
-    int8_t CRC;             // Only touch this variable when calculating CRC 
+    uint8_t rxBuffer[3];    // NOTE - 3 bytes in length for 24 bit transactions specifically
+    uint8_t CRC;             // Only touch this variable when calculating CRC 
 
     // Actual data stored away
     int16_t velocity;
@@ -70,7 +70,7 @@ HAL_StatusTypeDef AS5x47U_readVelocity(AS5x47U* enc_ptr);
 /* Low Level Functions */
 // NOTE - SPI commands here work with 24bit frames for CRC 8bit checks + we don't need the speed of 16bit frames
 HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr);
-HAL_StatusTypeDef AS5x47U_readRegisters(AS5x47U* enc_ptr);
+// HAL_StatusTypeDef AS5x47U_readRegisters(AS5x47U* enc_ptr);
 HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr);
 HAL_StatusTypeDef AS5x47U_calcCRC(AS5x47U* enc_ptr); // Calculation based on bits 23:8 -> Page 27 of 61: CRC Checksum
 

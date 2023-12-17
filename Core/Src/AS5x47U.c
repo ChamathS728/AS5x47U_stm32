@@ -12,26 +12,28 @@ HAL_StatusTypeDef AS5x47U_readVelocity(AS5x47U* enc_ptr);
 
 /* Low Level Functions */
 // NOTE - SPI commands here work with 24bit frames for CRC 8bit checks + we don't need the speed of 16bit frames
-HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr) {
+HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr, int16_t output) {
+    // NOTE: Consider adding logic related to the ERR bits: WARNING and ERROR respectively
 /*
     Inputs:
         enc_ptr: Pointer to the AS5x47U struct instance that stores all information
         reg_addr: 14 bit address indicating which register to be read over SPI -> stored as uint16_t
-*/
 
-    // 24 bit transaction SPI TransmitReceive
-
-    // Set up transmission buffer
-    int16_t txBuff[3]; // 24 bit transactions = 3 * 8 = 3 bytes
-    /*
-        txBuffer Structure
+    24 bit (3 byte) SPI transaction here
+    
+    txBuffer Structure
         Bit23 = 0
         Bit22 = 1 for reading
         Bits 21:8 to store the register address (14 bits)
         Bits 7:0 has the CRC that we send across
-    */
-   
-    uint16_t tempUpper = reg_addr | (1 << 14); // Set the 15th bit to 1 for read; the 15th bit is already 0
+
+
+*/
+    // Set up transmission buffer
+    uint8_t txBuff[3]; // 24 bit transactions = 3 * 8 = 3 bytes
+
+    // Set the 15th bit (bit 14) to 1 for read; the 16th (bit 15) bit is already 0
+    uint16_t tempUpper = reg_addr | (1 << 14); 
     /*
         tempUpper:
             Bit 15 is 0 since it isn't touched
@@ -41,19 +43,30 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr) {
         crc:
             Bits 7 to 0 here are all part of the crc
     */
-
-    // Last 8 bits = 1 byte for the crc value
-    txBuff = (tempUpper << 8) | (enc_ptr->last_crc); 
+    txBuff[0] = (uint8_t) (tempUpper >> 8);  // shift down by 8 bits to get the upper 8 bits
+    txBuff[1] = (uint8_t) (tempUpper % 256); // Modulo by 2^8 to get the lower 8 bits 
+    txBuff[2] = enc_ptr->last_crc; // Last 8 bits = 1 byte for the crc value
     
-    // Transmit over SPI and store away into a 32bit buffer
+    // Transmit over SPI and store away into a 24bit buffer
+    HAL_StatusTypeDef result = HAL_SPI_TransmitReceive(enc_ptr->hspi, txBuff, enc_ptr->rxBuffer, 1, HAL_MAX_DELAY);
     
     // Check that the CRC provided matches what we stored (enc_ptr->last_crc)
+    uint8_t rxTop = enc_ptr->rxBuffer[0];
+    uint8_t rxMid = enc_ptr->rxBuffer[1];
+    uint8_t rxCRC = enc_ptr->rxBuffer[2];
+    if (rxCRC != enc_ptr->last_crc) {
+        return HAL_ERROR;
+    }
 
     // Use bits 21:8 as the data bits that we actually want to read (14 bit number)
+    rxTop = rxTop % 64; // Modulo by 2^6 to get the lower 6 bits
+    
+    // Stitch the top and middle entries together into an int16_t (which only has 14 notable bits)
+    output = (rxTop << 8) | rxMid;
 
-    // Store the result away in the handle
+    
 
-    return HAL_OK;
+    return result;
 }
 
 
