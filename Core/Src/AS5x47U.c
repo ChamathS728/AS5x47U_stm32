@@ -4,14 +4,15 @@
 
 
 /* Initialisation Functions */
-HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi) {
+HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi, GPIO_TypeDef* enc_CS_port, uint16_t, enc_CS_pin) {
 
-    // Initialisation
+    // SPI initialisation
     enc_ptr->hspi = hspi;
+    enc_ptr->CS_port = enc_CS_port;
+    enc_ptr->CS_pin = enc_CS_pin;
 
     // Configuration information
     enc_ptr->rxBuffer = {0,0,0};    // NOTE - 3 bytes in length for 24 bit transactions specifically
-    enc_ptr->CRC = 196;              // 0xC4; initial value for the CRC
 
     // Actual data stored away
     enc_ptr->velocity = 0;
@@ -75,7 +76,10 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr, int16_
     txBuff[2] = enc_ptr->last_crc; // Last 8 bits = 1 byte for the crc value
     
     // Transmit over SPI and store away into a 24bit buffer
+    // NOTE - .ioc file should specify SPI data length as 24 bits
+    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_RESET);
     result = HAL_SPI_TransmitReceive(enc_ptr->hspi, txBuff, enc_ptr->rxBuffer, 1, HAL_MAX_DELAY);
+    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
     
     // Check that the CRC provided matches what we stored (enc_ptr->last_crc)
     uint8_t rxTop = enc_ptr->rxBuffer[0];
@@ -95,9 +99,17 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr, int16_
 }
 
 
+// HAL_StatusTypeDef AS5x47U_readRegisters(AS5x47U* enc_ptr);
+HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t input) {
+    /*
+    Inputs:
+        enc_ptr: Pointer to the AS5x47U struct instance that stores all information
+        reg_addr: 14 bit address indicating which register to be read over SPI -> stored as uint16_t
+        input: Data to be written to the specified register
+    */
 
-HAL_StatusTypeDef AS5x47U_readRegisters(AS5x47U* enc_ptr);
-HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr);
+    return HAL_OK;
+}
 
 HAL_StatusTypeDef AS5x47U_calcCRC(AS5x47U* enc_ptr, uint16_t crcData) {
     /*

@@ -39,12 +39,14 @@ NOTE -  Register addresses need to be 14bit for SPI transactions but they are 16
 
 /* Structs */
 typedef struct AS5x47U {
+    // Port and Pin information
     SPI_HandleTypeDef* hspi;
     uint8_t enc_addr;
+    GPIO_TypeDef* CS_port;  // Format of GPIOx, where x = A,B,C,D,E,F
+    uint16_t CS_pin;        // Format of GPIO_PIN_x, where x = 0 to 16
 
     // Configuration information
     uint8_t rxBuffer[3];    // NOTE - 3 bytes in length for 24 bit transactions specifically
-    uint8_t CRC;             // Only touch this variable when calculating CRC 
 
     // Actual data stored away
     int16_t velocity;
@@ -54,15 +56,18 @@ typedef struct AS5x47U {
     // Calibration information
     
 
-    // Crc value
+    // CRC variables
     uint8_t last_crc;
     uint8_t crcPoly;
+
+
+
 
 } AS5x47U;
 
 
 /* Initialisation Functions */
-HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr);
+HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi, GPIO_TypeDef* enc_CS_port, uint16_t, enc_CS_pin);
 
 /* Data Acquistion Functions */
 HAL_StatusTypeDef AS5x47U_readPosition(AS5x47U* enc_ptr);
@@ -70,10 +75,10 @@ HAL_StatusTypeDef AS5x47U_readVelocity(AS5x47U* enc_ptr);
 
 /* Low Level Functions */
 // NOTE - SPI commands here work with 24bit frames for CRC 8bit checks + we don't need the speed of 16bit frames
-HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr);
+HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr, int16_t output);
 // HAL_StatusTypeDef AS5x47U_readRegisters(AS5x47U* enc_ptr);
-HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr);
-HAL_StatusTypeDef AS5x47U_calcCRC(AS5x47U* enc_ptr); // Calculation based on bits 23:8 -> Page 27 of 61: CRC Checksum
+HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t input);
+HAL_StatusTypeDef AS5x47U_calcCRC(AS5x47U* enc_ptr, uint16_t crcData); // Calculation based on bits 23:8 -> Page 27 of 61: CRC Checksum
 HAL_StatusTypeDef AS5x47U_verifyCRC(AS5x47U* enc_ptr, uint16_t receivedData);
 
 #endif
