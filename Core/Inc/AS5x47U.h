@@ -51,6 +51,7 @@ typedef struct AS5x47U {
     // Actual data stored away
     int16_t velocity;
     int16_t angle_comp;
+    int16_t angle_uncomp;
     int16_t CORDIC_mag;
 
     // Calibration information
@@ -70,7 +71,8 @@ typedef struct AS5x47U {
 HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi, GPIO_TypeDef* enc_CS_port, uint16_t, enc_CS_pin);
 
 /* Data Acquistion Functions */
-HAL_StatusTypeDef AS5x47U_readPosition(AS5x47U* enc_ptr);
+HAL_StatusTypeDef AS5x47U_readPositionDAE(AS5x47U* enc_ptr);
+HAL_StatusTypeDef AS5x47U_readPositionNoDAE(AS5x47U* enc_ptr);
 HAL_StatusTypeDef AS5x47U_readVelocity(AS5x47U* enc_ptr); 
 
 /* Low Level Functions */
@@ -79,6 +81,5 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr, int16_
 // HAL_StatusTypeDef AS5x47U_readRegisters(AS5x47U* enc_ptr);
 HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t input);
 HAL_StatusTypeDef AS5x47U_calcCRC(AS5x47U* enc_ptr, uint16_t crcData); // Calculation based on bits 23:8 -> Page 27 of 61: CRC Checksum
-HAL_StatusTypeDef AS5x47U_verifyCRC(AS5x47U* enc_ptr, uint16_t receivedData);
 
 #endif
