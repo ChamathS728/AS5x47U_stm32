@@ -1,0 +1,14 @@
+../Core/Src/AS5x47U.c:7:19:AS5x47U_init	1
+../Core/Src/AS5x47U.c:44:19:AS5x47U_readPositionDAE	4
+../Core/Src/AS5x47U.c:69:19:AS5x47U_readPositionNoDAE	1
+../Core/Src/AS5x47U.c:83:19:AS5x47U_readVelocity	1
+../Core/Src/AS5x47U.c:98:19:AS5x47U_readERRFL	1
+../Core/Src/AS5x47U.c:121:19:AS5x47U_readRegister	4
+../Core/Src/AS5x47U.c:218:19:_AS5x47U_readRegisterNOP	1
+../Core/Src/AS5x47U.c:252:19:_AS5x47U_readRegisterNOP16	1
+../Core/Src/AS5x47U.c:268:19:AS5x47U_readRegister16	3
+../Core/Src/AS5x47U.c:315:19:AS5x47U_writeRegister	1
+../Core/Src/AS5x47U.c:355:19:AS5x47U_calcCRC	3
+../Core/Src/AS5x47U.c:426:6:AS5x47U_calcCRC_new	2
+../Core/Src/AS5x47U.c:438:6:AS5x47U_calcCRCTable	4
+../Core/Src/AS5x47U.c:462:6:CRC_calc_HAL	1

@@ -46,21 +46,27 @@ typedef struct AS5x47U {
     uint16_t CS_pin;        // Format of GPIO_PIN_x, where x = 0 to 16
 
     // Configuration information
-    uint8_t rxBuffer[3];    // NOTE - 3 bytes in length for 24 bit transactions specifically
-
+    uint16_t rxBuffer16;    
+    uint8_t rxBuffer[3]; // NOTE - 3 bytes in length for 24 bit transactions specifically
     // Actual data stored away
-    int16_t velocity;
-    int16_t angle_comp;
-    int16_t angle_uncomp;
+    float velocity;
+    float angle_comp;
+    float angle_uncomp;
     int16_t CORDIC_mag;
 
     // Calibration information
     
 
     // CRC variables
-    uint8_t last_crc;
+    uint32_t last_crc;
     uint8_t crcPoly;
+    uint8_t crcTable[256];
+    CRC_HandleTypeDef* hcrc;
 
+    // Error register
+    uint8_t warningBit;
+    uint8_t errorBit;
+    uint8_t err_reg;
 
 
 
@@ -68,18 +74,25 @@ typedef struct AS5x47U {
 
 
 /* Initialisation Functions */
-HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi, GPIO_TypeDef* enc_CS_port, uint16_t, enc_CS_pin);
+HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi, GPIO_TypeDef* enc_CS_port, uint16_t enc_CS_pin, CRC_HandleTypeDef* hcrc);
 
 /* Data Acquistion Functions */
 HAL_StatusTypeDef AS5x47U_readPositionDAE(AS5x47U* enc_ptr);
 HAL_StatusTypeDef AS5x47U_readPositionNoDAE(AS5x47U* enc_ptr);
 HAL_StatusTypeDef AS5x47U_readVelocity(AS5x47U* enc_ptr); 
+HAL_StatusTypeDef AS5x47U_readERRFL(AS5x47U* enc_ptr);
 
 /* Low Level Functions */
 // NOTE - SPI commands here work with 24bit frames for CRC 8bit checks + we don't need the speed of 16bit frames
-HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr, int16_t output);
-// HAL_StatusTypeDef AS5x47U_readRegisters(AS5x47U* enc_ptr);
+HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t* output);
+HAL_StatusTypeDef _AS5x47U_readRegisterNOP(AS5x47U* enc_ptr);
+HAL_StatusTypeDef _AS5x47U_readRegisterNOP16(AS5x47U* enc_ptr);
+HAL_StatusTypeDef AS5x47U_readRegister16(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t* output);
+
 HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t input);
 HAL_StatusTypeDef AS5x47U_calcCRC(AS5x47U* enc_ptr, uint16_t crcData); // Calculation based on bits 23:8 -> Page 27 of 61: CRC Checksum
+void AS5x47U_calcCRC_new(AS5x47U* enc_ptr, uint8_t* bytes, int numOfBytes);
+void AS5x47U_calcCRCTable(AS5x47U* enc_ptr);
 
+void CRC_calc_HAL(AS5x47U* enc_ptr, uint8_t* bytes, size_t numOfBytes);
 #endif
