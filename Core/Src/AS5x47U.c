@@ -4,7 +4,12 @@
 
 
 /* Initialisation Functions */
-HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi, GPIO_TypeDef* enc_CS_port, uint16_t, enc_CS_pin) {
+AS5x47U* AS5x47U_init(SPI_HandleTypeDef* hspi, 
+                      GPIO_TypeDef* enc_CS_port, 
+                      uint16_t enc_CS_pin) {
+
+    // Create handle
+    AS5x47U* enc_ptr = NULL;
 
     // SPI initialisation
     enc_ptr->hspi = hspi;
@@ -12,7 +17,8 @@ HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi, GPIO_T
     enc_ptr->CS_pin = enc_CS_pin;
 
     // Configuration information
-    enc_ptr->rxBuffer = {0,0,0};    // NOTE - 3 bytes in length for 24 bit transactions specifically
+    enc_ptr->rxBuffer[0] = 0;    // NOTE - 3 bytes in length for 24 bit transactions specifically
+    enc_ptr->rxBuffer[1] = 0;
 
     // Actual data stored away
     enc_ptr->velocity = 0;
@@ -22,138 +28,184 @@ HAL_StatusTypeDef AS5x47U_init(AS5x47U* enc_ptr, SPI_HandleTypeDef* hspi, GPIO_T
 
     // Calibration information
     
-    // Crc value
-    enc_ptr->last_crc = 196; // 0xC4; initial value for the CRC
-    enc_ptr->crcPoly = 29;   // 0x1D; CRC polynomial = 0x1D = 11101   
 
-
-    return HAL_OK;
+    return enc_ptr;
 }
 
 /* Data Acquistion Functions */
 HAL_StatusTypeDef AS5x47U_readPositionDAE(AS5x47U* enc_ptr) {
     // Initialise variables
-    uint16_t posRaw;
+    int16_t posRaw;
 
     // Read the angle compensated register
     HAL_StatusTypeDef result = AS5x47U_readRegister(enc_ptr, ANGLECOM, &posRaw);
 
-    // Convert posRaw into int16_t -> casting should work
-    enc_ptr->angle_comp = (int16_t) posRaw;
+    // Convert velRaw into actual value
+    enc_ptr->angle_comp = (float) posRaw/16384. * 360.;
 
     return result;
 }
 
 HAL_StatusTypeDef AS5x47U_readPositionNoDAE(AS5x47U* enc_ptr) {
     // Initialise variables
-    uint16_t posRaw;
+    int16_t posRaw;
 
     // Read the angle uncompensated register
     HAL_StatusTypeDef result = AS5x47U_readRegister(enc_ptr, ANGLEUNC, &posRaw);
 
-    // Convert posRaw into int16_t -> casting should work
-    enc_ptr->angle_uncomp = (int16_t) posRaw;
+    // Convert velRaw into actual value
+    enc_ptr->angle_comp = (float) posRaw/16384. * 360.;
 
     return result;
 }
 
 HAL_StatusTypeDef AS5x47U_readVelocity(AS5x47U* enc_ptr) {
     // Initialise variables
-    uint16_t velRaw;
+    int16_t velRaw;
 
     // Read the velocity register
     HAL_StatusTypeDef result = AS5x47U_readRegister(enc_ptr, VEL, &velRaw);
 
-    // Convert velRaw into int16_t -> casting should work
-    enc_ptr->velocity = (int16_t) velRaw;
+    // Convert velRaw into actual value
+    enc_ptr->angle_comp = (float) velRaw/16384. * 360.;
 
     return result;    
 }
 
+HAL_StatusTypeDef AS5x47U_readERRFL(AS5x47U* enc_ptr) {
+    /*
+        11 bits go like this
+
+        bit 10  : CORDIC overflow
+        bit 9   : OffCompNotFinished
+        bit 8   : BRKHALL -> broken hall effect sensor
+        bit 7   : WDTST -> Internal oscillator or watchdog isn't working correctly
+        bit 6   : CRC error -> CRC error during SPI communication
+        bit 5   : Command error -> SPI invalid command received
+        bit 4   : Framing error -> Framing if SPI communication wrong
+        bit 3   : P2ram error -> ECC has detected 2 uncorrectable errors in P2RAM in customer area
+        bit 2   : P2ram warning -> ECC is correcting one bit of P2ram in customer area
+        bit 1   : MagHalf -> 
+        bit 0   : Agc-warning -> AGC value is 0LSB or 255LSB
+    */
+
+    int16_t* temp = NULL;
+    HAL_StatusTypeDef result = AS5x47U_readRegister(enc_ptr, ERRFL, temp);
+    uint16_t blah = (uint16_t) *temp;
+    // Store the individual bits in an array
+    for (int i = 0; i < 11; i++) {
+      uint16_t sieve = (1 << i);
+      enc_ptr->errReg[i] = (uint8_t) ((blah & sieve) >> i);    // Cast temp back to uint16_t
+    } 
+
+    return result;   
+}
+
+HAL_StatusTypeDef AS5x47U_readDIA(AS5x47U* enc_ptr) {
+    /*
+        13 bits go like this
+
+        bit 12  : SPI_cnt -> SPI frame counter
+        bit 11  : SPI_cnt -> SPI frame counter 
+        bit 10  : Fusa_error -> Error flag broken Hall element
+        bit 9   : AGC_finished -> Initial AGC settling finished
+        bit 8   : Off comp finished -> Error flag offset compensation finished
+        bit 7   : SinOff_fin -> Sine offset compensation finished
+        bit 6   : CosOff_fin -> Cosine offset compensation finished
+        bit 5   : MagHalf_flag -> Error flag magnitude is below half of target value
+        bit 4   : Comp_h -> Warning flag AGC high
+        bit 3   : Comp_l -> Warning flag AGC low
+        bit 2   : Cordic_overflow -> Error flag CORDIC overflow
+        bit 1   : LoopsFinished -> All magneto core loops finished
+        bit 0   : Vdd_mode -> VDD supply mode:
+    */
+
+    int16_t* temp = NULL;
+    HAL_StatusTypeDef result = AS5x47U_readRegister(enc_ptr, DIA, temp);
+    uint16_t blah = (uint16_t) *temp;
+    // Store the individual bits in an array
+    for (int i = 0; i < 13; i++) {
+      uint16_t sieve = (1 << i);
+      enc_ptr->diaReg[i] = (uint8_t) ((blah & sieve) >> i);    // Cast temp back to uint16_t
+    } 
+
+    return result;   
+}
+
+
 /* Low Level Functions */
 // NOTE - SPI commands here work with 24bit frames for CRC 8bit checks + we don't need the speed of 16bit frames
-HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, uint16 reg_addr, uint16_t* output) {
-/*
-NOTE - Consider adding logic related to the ERR bits: WARNING and ERROR respectively
-
-    Inputs:
-        enc_ptr: Pointer to the AS5x47U struct instance that stores all information
-        reg_addr: 14 bit address indicating which register to be read over SPI -> stored as uint16_t
-
-    24 bit (3 byte) SPI transaction here
+HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr, 
+                                       uint16_t reg_addr, 
+                                       int16_t* output) {
     
-    txBuffer Structure
-        Bit23 = 0
-        Bit22 = 1 for readin
-        Bits 21:8 to store the register address (14 bits)
-        Bits 7:0 has the CRC that we send across
-
-
-*/
-    // Set up transmission buffer
-    uint8_t txBuff[3]; // 24 bit transactions = 3 * 8 = 3 bytes
-
-    // Set the 15th bit (bit 14) to 1 for read; the 16th (bit 15) bit is already 0
-    uint16_t tempUpper = reg_addr | (1 << 14); 
-    /*
-        tempUpper:
-            Bit 15 is 0 since it isn't touched
-            Bit 14 is 1 since we want to read
-            Bits 13 to 0 contain the address
-
-        crc:
-            Bits 7 to 0 here are all part of the crc
-    */
-    txBuff[0] = (uint8_t) (tempUpper >> 8);  // shift down by 8 bits to get the upper 8 bits
-    txBuff[1] = (uint8_t) (tempUpper % 256); // Modulo by 2^8 to get the lower 8 bits 
-
-    // Make temporary variable containing the message for CRC calculation
-    HAL_StatusTypeDef result = AS5x47U_calcCRC(enc_ptr, tempUpper);
-
-    // uint16_t temp = (txBuff[0] << 8) | txBuff[1];
-    // HAL_StatusTypeDef result = AS5x47U_calcCRC(enc_ptr, temp);
-
-    txBuff[2] = enc_ptr->last_crc; // Last 8 bits = 1 byte for the crc value
+    // create txBuffer with address
+    uint8_t txBuffer[2];
+    reg_addr = reg_addr | 0x4000; // Set RW bit to 1 for read
+    txBuffer[0] = (uint8_t) (reg_addr >> 8);
+    txBuffer[1] = (uint8_t) (reg_addr % 256);
     
-    // Transmit over SPI and store away into a 24bit buffer
-    // NOTE - .ioc file should specify SPI data length as 24 bits
-    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_RESET);
-    result = HAL_SPI_TransmitReceive(enc_ptr->hspi, txBuff, enc_ptr->rxBuffer, 1, HAL_MAX_DELAY);
-    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
-    
-    // Check that the CRC provided matches what we stored (enc_ptr->last_crc)
-    uint8_t rxTop = enc_ptr->rxBuffer[0];
-    uint8_t rxMid = enc_ptr->rxBuffer[1];
-    uint8_t rxCRC = enc_ptr->rxBuffer[2];
-    if (rxCRC != enc_ptr->last_crc) {
-        return HAL_ERROR;
+    if (enc_ptr->hspi->State != HAL_SPI_STATE_READY) {
+    	return HAL_BUSY;
     }
 
-    // Use bits 21:8 as the data bits that we actually want to read (14 bit number)
-    rxTop = rxTop % 64; // Modulo by 2^6 to get the lower 6 bits
-    
-    // Stitch the top and middle entries together into an uint16_t (which only has 14 notable bits)
-    *output = (rxTop << 8) | rxMid;
+    // Send 16-bit buffer with address 
+    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_RESET);
+    HAL_StatusTypeDef result = HAL_SPI_TransmitReceive(enc_ptr->hspi,
+                                                txBuffer,
+												enc_ptr->rxBuffer,
+                                                2, 
+                                                HAL_MAX_DELAY);
+
+    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
+
+    if (enc_ptr->hspi->State != HAL_SPI_STATE_READY) {
+    	return HAL_BUSY;
+    }
+
+    // recreate txBuffer with NOP address
+    uint16_t temp = NOP | 0x4000;
+    txBuffer[0] = (uint8_t) (temp >> 8);
+    txBuffer[1] = (uint8_t) (temp % 256);
+
+    // Send 16-bit buffer with NOP address and receive simultaneously
+    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_RESET);
+    result = HAL_SPI_TransmitReceive(enc_ptr->hspi, 
+                                     txBuffer, 
+                                     enc_ptr->rxBuffer, 
+                                     2, 
+									 HAL_MAX_DELAY);
+    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
+
+    if (enc_ptr->hspi->State != HAL_SPI_STATE_READY) {
+    	return HAL_BUSY;
+    }
+
+    // Put the contents of the rxBuffer into the output
+    uint8_t data = enc_ptr->rxBuffer[0] % 64;
+    *output = (int16_t) (data << 8) | (enc_ptr->rxBuffer[1]);
+
+    // Check the warning and error bits
+    enc_ptr->warningBit = (enc_ptr->rxBuffer[0] & 0x80) >> 7;
+    enc_ptr->errorBit = (enc_ptr->rxBuffer[0] & 0x40) >> 6;
 
     return result;
 }
 
-
-// HAL_StatusTypeDef AS5x47U_readRegisters(AS5x47U* enc_ptr);
+/*
 HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t input) {
-    /*
-    Inputs:
-        enc_ptr: Pointer to the AS5x47U struct instance that stores all information
-        reg_addr: 14 bit address indicating which register to be read over SPI -> stored as uint16_t
-        input: 14 bit input value to be written to the specified register
 
-    Register writes happen in two steps
-        1. Send packet containing the address of the register to write to
-            NOTE: MOSI line has this packet; MISO won't have anything
-        2. Send packet containing the data we want to write to that register
-            NOTE: MOSI line has this packet, MISO line has a packet containing the old contents of the register
-            Current implementation ignores the old contents 
-    */
+    // Inputs:
+    //     enc_ptr: Pointer to the AS5x47U struct instance that stores all information
+    //     reg_addr: 14 bit address indicating which register to be read over SPI -> stored as uint16_t
+    //     input: 14 bit input value to be written to the specified register
+
+    // Register writes happen in two steps
+    //     1. Send packet containing the address of the register to write to
+    //         NOTE: MOSI line has this packet; MISO won't have anything
+    //     2. Send packet containing the data we want to write to that register
+    //         NOTE: MOSI line has this packet, MISO line has a packet containing the old contents of the register
+    //         Current implementation ignores the old contents 
 
     // Send first packet with target address
     HAL_StatusTypeDef result = AS5x47U_calcCRC(enc_ptr, reg_addr); // CRC calc on the "data"
@@ -179,48 +231,20 @@ HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uin
     
     return result;
 }
+*/
 
-HAL_StatusTypeDef AS5x47U_calcCRC(AS5x47U* enc_ptr, uint16_t crcData) {
-    /*
-        Inputs:
-            enc_ptr: pointer to AS5x47U instance
-            crcData: Data to calculate a CRC value for
-        Output:
-            HAL_STATUS detailing how the calculation went
+void AS5x47U_printERRFL(AS5x47U* enc_ptr, UART_HandleTypeDef* huart) {
+	float MSG[100] = {'\0'}; // NULL terminated string for printing
+    AS5x47U_readERRFL(enc_ptr);
+    sprintf(MSG, "ERRFL register:\r\nBit 10: %d\r\nBit 9: %d\r\nBit 8: %d\r\nBit 7: %d\r\nBit 6: %d\r\nBit 5: %d\r\nBit 4: %d\r\nBit 3: %d\r\nBit 2: %d\r\nBit 1: %d\r\nBit 0: %d\r\n\n",
+            enc_ptr->errReg[10], enc_ptr->errReg[9], enc_ptr->errReg[8], enc_ptr->errReg[7], enc_ptr->errReg[6], enc_ptr->errReg[5], enc_ptr->errReg[4], enc_ptr->errReg[3], enc_ptr->errReg[2], enc_ptr->errReg[1], enc_ptr->errReg[0]);
+    HAL_UART_Transmit(huart, (uint8_t*) MSG, sizeof(MSG), 100);
+}
 
-        Pseudocode (inspired from here: https://www.educative.io/answers/how-to-calculate-the-crc)
-        1. Get the length of the divisor polynomial (N)
-        2. Append N-1 bits of 0 to the data packet
-        3. Perform modulo-2 division (crcData appended divided by the divisor)
-        4. Store the remainder in enc_ptr (should be an 8 bit number to be appended in the message)
-
-        NOTE: Modulo-2 division could maybe be optimised
-    */
-    // 1. Get any necessary variable lengths (binary lengths)
-    int N = 5; // Hardcoded value as the divisor polynomial is fixed at 11101
-    int dataLen = 16; // crcData is always 16 bits long for 24bit transfers
-
-    // 2. 
-    uint32_t crcData_appended = crcData << (N - 1); // Could bitshift left by 4 as well directly to save a variable
-
-    // 3. Divide a 20 bit number by a 5 bit number via XOR's -> need 15 rounds of division at most
-    for (int i = (dataLen - 1); i <= 0; i--) { // i starts from 15 and goes down to 0 to give 16 iterations
-        // Bitshift left the divisor by i bits for division
-        uint32_t divisor = (enc_ptr->crcPoly << i);
-
-        // Check if we need to XOR with 0 due to divisor and crcData_appended not being aligned at this stage
-        if (crcData_appended % (1 << (i + N)) != crcData_appended) {
-            // Aligned data, so XOR with divisor of the proper size
-            crcData_appended = crcData_appended ^ divisor;
-        }
-        else {
-            // Not aligned, so XOR with 0 to maintain data size; later iteration should have a divisor with the correct size
-            crcData_appended = crcData_appended ^ 0;            
-        }
-    }
-
-    // 4.
-    enc_ptr->last_crc = crcData_appended;
-
-    return HAL_OK;
+void AS5x47U_printDIA(AS5x47U* enc_ptr, UART_HandleTypeDef* huart) {
+	float MSG[100] = {'\0'}; // NULL terminated string for printing
+    AS5x47U_readDIA(enc_ptr);
+    sprintf(MSG, "DIA register:\r\nBit 12: %d\r\nBit 11: %d\r\nBit 10: %d\r\nBit 9: %d\r\nBit 8: %d\r\nBit 7: %d\r\nBit 6: %d\r\nBit 5: %d\r\nBit 4: %d\r\nBit 3: %d\r\nBit 2: %d\r\nBit 1: %d\r\nBit 0: %d\r\n\n",
+            enc_ptr->diaReg[12], enc_ptr->diaReg[11], enc_ptr->diaReg[10], enc_ptr->diaReg[9], enc_ptr->diaReg[8], enc_ptr->diaReg[7], enc_ptr->diaReg[6], enc_ptr->diaReg[5], enc_ptr->diaReg[4], enc_ptr->diaReg[3], enc_ptr->diaReg[2], enc_ptr->diaReg[1], enc_ptr->diaReg[0]);
+    HAL_UART_Transmit(huart, (uint8_t*) MSG, sizeof(MSG), 100);    
 }

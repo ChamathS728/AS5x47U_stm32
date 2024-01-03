@@ -1,0 +1,9 @@
+../Core/Src/AS5x47U.c:7:10:AS5x47U_init	1
+../Core/Src/AS5x47U.c:36:19:AS5x47U_readPositionDAE	1
+../Core/Src/AS5x47U.c:49:19:AS5x47U_readPositionNoDAE	1
+../Core/Src/AS5x47U.c:62:19:AS5x47U_readVelocity	1
+../Core/Src/AS5x47U.c:75:19:AS5x47U_readERRFL	2
+../Core/Src/AS5x47U.c:104:19:AS5x47U_readDIA	2
+../Core/Src/AS5x47U.c:138:19:AS5x47U_readRegister	4
+../Core/Src/AS5x47U.c:236:6:AS5x47U_printERRFL	1
+../Core/Src/AS5x47U.c:244:6:AS5x47U_printDIA	1
