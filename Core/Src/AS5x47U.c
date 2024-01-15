@@ -142,8 +142,8 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr,
     // create txBuffer with address
     uint8_t txBuffer[2];
     reg_addr = reg_addr | 0x4000; // Set RW bit to 1 for read
-    txBuffer[0] = (uint8_t) (reg_addr >> 8);
-    txBuffer[1] = (uint8_t) (reg_addr % 256);
+    txBuffer[1] = (uint8_t) (reg_addr >> 8);
+    txBuffer[0] = (uint8_t) (reg_addr % 256);
     
     if (enc_ptr->hspi->State != HAL_SPI_STATE_READY) {
     	return HAL_BUSY;
@@ -154,7 +154,7 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr,
     HAL_StatusTypeDef result = HAL_SPI_TransmitReceive(enc_ptr->hspi,
                                                 txBuffer,
 												enc_ptr->rxBuffer,
-                                                2, 
+                                                2,
                                                 HAL_MAX_DELAY);
 
     HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
@@ -165,15 +165,15 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr,
 
     // recreate txBuffer with NOP address
     uint16_t temp = NOP | 0x4000;
-    txBuffer[0] = (uint8_t) (temp >> 8);
-    txBuffer[1] = (uint8_t) (temp % 256);
+    txBuffer[1] = (uint8_t) (temp >> 8);
+    txBuffer[0] = (uint8_t) (temp % 256);
 
     // Send 16-bit buffer with NOP address and receive simultaneously
     HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_RESET);
     result = HAL_SPI_TransmitReceive(enc_ptr->hspi, 
                                      txBuffer, 
                                      enc_ptr->rxBuffer, 
-                                     2, 
+                                     2,
 									 HAL_MAX_DELAY);
     HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
 
@@ -182,12 +182,12 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr,
     }
 
     // Put the contents of the rxBuffer into the output
-    uint8_t data = enc_ptr->rxBuffer[0] % 64;
-    *output = (int16_t) (data << 8) | (enc_ptr->rxBuffer[1]);
+    uint8_t data = enc_ptr->rxBuffer[1] % 64;
+    *output = (int16_t) (data << 8) | (enc_ptr->rxBuffer[0]);
 
     // Check the warning and error bits
-    enc_ptr->warningBit = (enc_ptr->rxBuffer[0] & 0x80) >> 7;
-    enc_ptr->errorBit = (enc_ptr->rxBuffer[0] & 0x40) >> 6;
+    enc_ptr->warningBit = (enc_ptr->rxBuffer[1] & 0x80) >> 7;
+    enc_ptr->errorBit = (enc_ptr->rxBuffer[1] & 0x40) >> 6;
 
     return result;
 }

@@ -107,7 +107,7 @@ int main(void)
   // Set up buffer for printing
   float MSG[40] = {'\0'}; // NULL terminated string for printing
   float X = 0.0;
-  uint32_t ENC_TIME = 1000000; // 1 second
+  uint32_t ENC_TIME = 10000; // 1 second
   uint32_t prevTime = micros(&htim2);
   /* USER CODE END 2 */
 
@@ -129,16 +129,18 @@ int main(void)
 
 	    HAL_Delay(100);
 
-		if (!(enc_ptr->errorBit || enc_ptr->warningBit)) {
-			sprintf(MSG, "X = %.2f\r\nWarning bit: %d\r\nError bit: %d\r\n",
-				  X, enc_ptr->warningBit, enc_ptr->errorBit);
-			HAL_UART_Transmit(&huart3, (uint8_t*) MSG, sizeof(MSG), 100);
-		}
+//		if (!(enc_ptr->errorBit || enc_ptr->warningBit)) {
+//
+//		}
+
+		sprintf(MSG, "X = %.2f\r\nWarning bit: %d\r\nError bit: %d\r\n",
+			  X, enc_ptr->warningBit, enc_ptr->errorBit);
+		HAL_UART_Transmit(&huart3, (uint8_t*) MSG, sizeof(MSG), 100);
 
 		HAL_Delay(100);
 
-	    AS5x47U_printERRFL(enc_ptr, &huart3);
-	    AS5x47U_printDIA(enc_ptr, &huart3);
+//	    AS5x47U_printERRFL(enc_ptr, &huart3);
+//	    AS5x47U_printDIA(enc_ptr, &huart3);
 
 	    prevTime = micros(&htim2);
 
@@ -396,7 +398,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, SPI4_CS_Pin|LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SPI4_CS_GPIO_Port, SPI4_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_FS_PWR_EN_GPIO_Port, USB_FS_PWR_EN_Pin, GPIO_PIN_RESET);
@@ -404,12 +406,15 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|SPI1_CS_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : SPI4_CS_Pin LD2_Pin */
-  GPIO_InitStruct.Pin = SPI4_CS_Pin|LD2_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : SPI4_CS_Pin */
+  GPIO_InitStruct.Pin = SPI4_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  HAL_GPIO_Init(SPI4_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -457,6 +462,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LD2_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
