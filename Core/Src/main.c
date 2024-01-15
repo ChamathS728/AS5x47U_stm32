@@ -107,7 +107,7 @@ int main(void)
   // Set up buffer for printing
   float MSG[40] = {'\0'}; // NULL terminated string for printing
   float X = 0.0;
-  uint32_t ENC_TIME = 10000; // 1 second
+  uint32_t ENC_TIME = 10000; // 0.1 seconds
   uint32_t prevTime = micros(&htim2);
   /* USER CODE END 2 */
 

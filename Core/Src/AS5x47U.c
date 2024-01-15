@@ -54,7 +54,7 @@ HAL_StatusTypeDef AS5x47U_readPositionNoDAE(AS5x47U* enc_ptr) {
     HAL_StatusTypeDef result = AS5x47U_readRegister(enc_ptr, ANGLEUNC, &posRaw);
 
     // Convert velRaw into actual value
-    enc_ptr->angle_comp = (float) posRaw/16384. * 360.;
+    enc_ptr->angle_uncomp = (float) posRaw/16384. * 360.;
 
     return result;
 }
@@ -67,7 +67,7 @@ HAL_StatusTypeDef AS5x47U_readVelocity(AS5x47U* enc_ptr) {
     HAL_StatusTypeDef result = AS5x47U_readRegister(enc_ptr, VEL, &velRaw);
 
     // Convert velRaw into actual value
-    enc_ptr->angle_comp = (float) velRaw/16384. * 360.;
+    enc_ptr->velocity = (float) velRaw/16384. * 360.;
 
     return result;    
 }
@@ -144,17 +144,13 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr,
     reg_addr = reg_addr | 0x4000; // Set RW bit to 1 for read
     txBuffer[1] = (uint8_t) (reg_addr >> 8);
     txBuffer[0] = (uint8_t) (reg_addr % 256);
-    
-    if (enc_ptr->hspi->State != HAL_SPI_STATE_READY) {
-    	return HAL_BUSY;
-    }
 
     // Send 16-bit buffer with address 
     HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_RESET);
     HAL_StatusTypeDef result = HAL_SPI_TransmitReceive(enc_ptr->hspi,
                                                 txBuffer,
 												enc_ptr->rxBuffer,
-                                                2,
+                                                1,
                                                 HAL_MAX_DELAY);
 
     HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
@@ -173,7 +169,7 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr,
     result = HAL_SPI_TransmitReceive(enc_ptr->hspi, 
                                      txBuffer, 
                                      enc_ptr->rxBuffer, 
-                                     2,
+                                     1,
 									 HAL_MAX_DELAY);
     HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
 
@@ -183,7 +179,7 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr,
 
     // Put the contents of the rxBuffer into the output
     uint8_t data = enc_ptr->rxBuffer[1] % 64;
-    *output = (int16_t) (data << 8) | (enc_ptr->rxBuffer[0]);
+    *output = (int16_t) ((int16_t) data << 8) | ((int16_t) enc_ptr->rxBuffer[0]);
 
     // Check the warning and error bits
     enc_ptr->warningBit = (enc_ptr->rxBuffer[1] & 0x80) >> 7;
@@ -192,8 +188,8 @@ HAL_StatusTypeDef AS5x47U_readRegister(AS5x47U* enc_ptr,
     return result;
 }
 
-/*
-HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t input) {
+
+HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uint16_t input, uint16_t* output) {
 
     // Inputs:
     //     enc_ptr: Pointer to the AS5x47U struct instance that stores all information
@@ -206,32 +202,51 @@ HAL_StatusTypeDef AS5x47U_writeRegister(AS5x47U* enc_ptr, uint16_t reg_addr, uin
     //     2. Send packet containing the data we want to write to that register
     //         NOTE: MOSI line has this packet, MISO line has a packet containing the old contents of the register
     //         Current implementation ignores the old contents 
+    //     3. 
+    // create txBuffer with address
+    uint8_t txBuffer[2];
+    reg_addr = reg_addr | 0x4000; // Set RW bit to 1 for read
+    txBuffer[1] = (uint8_t) (reg_addr >> 8);
+    txBuffer[0] = (uint8_t) (reg_addr % 256);
 
-    // Send first packet with target address
-    HAL_StatusTypeDef result = AS5x47U_calcCRC(enc_ptr, reg_addr); // CRC calc on the "data"
-
-    uint8_t txBuff[3]; // Transmission buffer
-    txBuff[0] = (uint8_t) (reg_addr >> 8);  // shift down by 8 bits to get the upper 8 bits
-    txBuff[1] = (uint8_t) (reg_addr % 256); // Modulo by 2^8 to get the lower 8 bits 
-    txBuff[2] = enc_ptr->last_crc; // Last 8 bits = 1 byte for the crc value
-
+    // Send 16-bit buffer with address 
     HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_RESET);
-    result = HAL_SPI_Transmit(enc_ptr->hspi, txBuff, 1, HAL_MAX_DELAY);
-    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);    
+    HAL_StatusTypeDef result = HAL_SPI_Transmit(enc_ptr->hspi,
+                                                txBuffer,
+                                                1,
+                                                HAL_MAX_DELAY);
 
-    // Send second packet with data to be written
-    result = AS5x47U_calcCRC(enc_ptr, input); // CRC calc on the actual data to be written
-    txBuff[0] = (uint8_t) (input >> 8);  // shift down by 8 bits to get the upper 8 bits
-    txBuff[1] = (uint8_t) (input % 256); // Modulo by 2^8 to get the lower 8 bits 
-    txBuff[2] = enc_ptr->last_crc; // Last 8 bits = 1 byte for the crc value    
+    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
 
+    // recreate txBuffer with NOP address
+    uint16_t temp = input | 0x4000;
+    txBuffer[1] = (uint8_t) (temp >> 8);
+    txBuffer[0] = (uint8_t) (temp % 256);
+
+    // Send 16-bit buffer with NOP address and receive simultaneously
     HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_RESET);
-    result = HAL_SPI_Transmit(enc_ptr->hspi, txBuff, 1, HAL_MAX_DELAY);
-    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);    
-    
+    result = HAL_SPI_TransmitReceive(enc_ptr->hspi, 
+                                     txBuffer, 
+                                     enc_ptr->rxBuffer, 
+                                     1,
+									 HAL_MAX_DELAY);
+    HAL_GPIO_WritePin(enc_ptr->CS_port, enc_ptr->CS_pin, GPIO_PIN_SET);
+
+    if (enc_ptr->hspi->State != HAL_SPI_STATE_READY) {
+    	return HAL_BUSY;
+    }
+
+    // Put the contents of the rxBuffer into the output
+    uint8_t data = enc_ptr->rxBuffer[1] % 64;
+    *output = (uint16_t) (data << 8) | (enc_ptr->rxBuffer[0]);
+
+    // Check the warning and error bits
+    enc_ptr->warningBit = (enc_ptr->rxBuffer[1] & 0x80) >> 7;
+    enc_ptr->errorBit = (enc_ptr->rxBuffer[1] & 0x40) >> 6;
+
     return result;
 }
-*/
+
 
 void AS5x47U_printERRFL(AS5x47U* enc_ptr, UART_HandleTypeDef* huart) {
 	float MSG[100] = {'\0'}; // NULL terminated string for printing

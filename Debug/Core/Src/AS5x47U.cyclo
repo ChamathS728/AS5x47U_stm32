@@ -4,6 +4,7 @@
 ../Core/Src/AS5x47U.c:62:19:AS5x47U_readVelocity	1
 ../Core/Src/AS5x47U.c:75:19:AS5x47U_readERRFL	2
 ../Core/Src/AS5x47U.c:104:19:AS5x47U_readDIA	2
-../Core/Src/AS5x47U.c:138:19:AS5x47U_readRegister	4
-../Core/Src/AS5x47U.c:236:6:AS5x47U_printERRFL	1
-../Core/Src/AS5x47U.c:244:6:AS5x47U_printDIA	1
+../Core/Src/AS5x47U.c:138:19:AS5x47U_readRegister	3
+../Core/Src/AS5x47U.c:192:19:AS5x47U_writeRegister	2
+../Core/Src/AS5x47U.c:251:6:AS5x47U_printERRFL	1
+../Core/Src/AS5x47U.c:259:6:AS5x47U_printDIA	1
